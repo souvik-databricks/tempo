@@ -152,9 +152,6 @@ def calc_anomalies(spark, yaml_file):
         selected_cols = ['ds'] + partition_cols + ['metric', 'yhat', 'y', 'yhat_lower', 'yhat_upper', ]
         f_anomalies = forecast_result.select(*selected_cols).withColumn("class_2_anomaly_fl", F.when( ( (F.col("y") >= F.col("yhat_upper")) | (F.col("y") <= F.col("yhat_lower"))) & (F.col("y").isNotNull()), 1).otherwise( F.when( (F.col("y").isNull()) & ( (F.col("yhat") >= F.col("yhat_upper")) | (F.col("yhat") <= F.col("yhat_lower"))), 1).otherwise(0))).withColumnRenamed("ds", ts_col)
 
-
-        anomalies.show(10, False)
-        f_anomalies.show(10, False)
         join_cols = partition_cols + [ts_col] +  ['metric']
         cons_anomalies = anomalies.join(f_anomalies, join_cols).withColumn("anomaly_fl", 0.5*F.col("class_1_anomaly_fl") + 0.5*F.col("class_2_anomaly_fl"))
 
@@ -166,7 +163,7 @@ def calc_anomalies(spark, yaml_file):
         # append to existing table without DLT
         elif mode == 'append':
             # incremental append with DLT
-            print('hey')
+            print('append for DLT')
         elif (mode == 'incremental') & (os.getenv('DATABRICKS_RUNTIME_VERSION') != None):
             import dlt
             @dlt.view
