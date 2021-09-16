@@ -2,6 +2,7 @@ import pyspark.sql.functions as f
 from pyspark.sql.window import Window
 import tempo.resample as rs
 import tempo.io as tio
+from pyarrow import *
 
 class TSDF:
 
