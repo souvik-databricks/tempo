@@ -199,14 +199,14 @@ class TSDF:
         The lag for which the auto-correlation is to be calculated.
     """
     if self.partitionCols:
-      df = self.df.select(self.ts_col, self.partitionCols, col)
+      df = self.df.select(self.ts_col, *self.partitionCols, col)
       mean_count_per_ts = df.groupBy(*self.partitionCols).agg(
           f.mean(col).alias('mean'),
           f.count(col).alias('count')
       )
       mean_count_added = df.alias('df').join(
           mean_count_per_ts,
-          *self.partitionCols,
+          self.partitionCols,
           'left'
       ).select('df.*','mean','count')
       mean_substraction = mean_count_added.withColumn(
