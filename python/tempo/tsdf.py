@@ -187,6 +187,133 @@ class TSDF:
     df = partition_df.union(remainder_df).drop("partition_remainder","ts_col_double")
     return TSDF(df, self.ts_col, self.partitionCols + ['ts_partition'])
 
+  def autocorr(self, col, lag = 1):
+    """
+    Get the auto-correlation for a particular lag of the tsdf
+
+    Parameters
+    ----------
+    col : str
+        The name of the column which contains the time series values.
+    lag : int, optional
+        The lag for which the auto-correlation is to be calculated.
+    """
+    if self.partitionCols:
+      df = self.df.select(self.ts_col, self.partitionCols, col)
+      mean_count_per_ts = df.groupBy(*self.partitionCols).agg(
+          f.mean(col).alias('mean'),
+          f.count(col).alias('count')
+      )
+      mean_count_added = df.alias('df').join(
+          mean_count_per_ts,
+          *self.partitionCols,
+          'left'
+      ).select('df.*','mean','count')
+      mean_substraction = mean_count_added.withColumn(
+          'substract', f.col(col) - f.col('mean')
+      ).withColumn('sq',f.pow('substract',2))
+
+      denominator_per_ts = mean_substraction.groupBy(*self.partitionCols).agg(
+          f.sum('sq').alias('denominator')
+      )
+
+      w = Window.partitionBy(self.partitionCols).orderBy(self.ts_col)
+      row_numbered_data = mean_substraction.withColumn(
+          'row',
+          f.row_number().over(w)
+      )
+
+      lag_wise_split_marked_data = row_numbered_data.withColumn(
+          'grouping_col1', f.when(f.col('row') <= (f.col('count') - f.lit(lag)), 1).otherwise(f.lit(None))
+      ).withColumn('grouping_col2', f.when(f.col('row') > lag, 1).otherwise(f.lit(None)))
+
+      split_marked_join_prep = lag_wise_split_marked_data.withColumn(
+          'df_identity_row1',
+          f.col('row') * f.col('grouping_col1')
+      ).withColumn(
+          'df_identity_row2',
+          f.col('row') * f.col('grouping_col2')
+      )
+      split_marked_join_prep = split_marked_join_prep.withColumn('df_identity_row2',
+                                                                 f.col('df_identity_row2') - f.lit(lag))
+
+      numerator_p1 = split_marked_join_prep.filter(f.col('df_identity_row2').isNotNull()).selectExpr(
+          'row as row_p1', 'substract as v_p1', 'df_identity_row2 as joincol', *self.partitionCols
+      )
+      numerator_p2 = split_marked_join_prep.filter(f.col('df_identity_row1').isNotNull()).selectExpr(
+          'row as row_p2', 'substract as v_p2', 'df_identity_row1 as joincol', *self.partitionCols
+      )
+      numerators_collated = numerator_p1.alias('n1').join(numerator_p2.alias('n2'),
+                                                          ['joincol',*self.partitionCols],
+                                                          'inner')
+      numerator_product = numerators_collated.withColumn('mul', f.col('v_p1')*f.col('v_p2'))
+      numerator_per_ts = numerator_product.groupBy(*self.partitionCols).agg(f.sum('mul').alias('numerator'))
+      acf_df = numerator_per_ts.join(denominator_per_ts,[*self.partitionCols],'inner')
+      acf = acf_df.withColumn(
+          f'autocorr_lag_{lag}',
+          f.col('numerator')/f.col('denominator')
+      ).select(*self.partitionCols,f'autocorr_lag_{lag}')
+      return acf
+
+
+    else:
+      df = self.df.selectExpr(self.ts_col, '"dummy" as _dummy_group_col', col)
+      mean_count_per_ts = df.groupBy('_dummy_group_col').agg(
+          f.mean(col).alias('mean'),
+          f.count(col).alias('count')
+      )
+      mean_count_added = df.alias('df').join(
+          mean_count_per_ts,
+          '_dummy_group_col',
+          'left'
+      ).select('df.*', 'mean', 'count')
+      mean_substraction = mean_count_added.withColumn(
+          'substract', f.col(col) - f.col('mean')
+      ).withColumn('sq', f.pow('substract', 2))
+
+      denominator_per_ts = mean_substraction.groupBy('_dummy_group_col').agg(
+          f.sum('sq').alias('denominator')
+      )
+
+      w = Window.partitionBy('_dummy_group_col').orderBy(self.ts_col)
+      row_numbered_data = mean_substraction.withColumn(
+          'row',
+          f.row_number().over(w)
+      )
+
+      lag_wise_split_marked_data = row_numbered_data.withColumn(
+          'grouping_col1', f.when(f.col('row') <= (f.col('count') - f.lit(lag)), 1).otherwise(f.lit(None))
+      ).withColumn('grouping_col2', f.when(f.col('row') > lag, 1).otherwise(f.lit(None)))
+
+      split_marked_join_prep = lag_wise_split_marked_data.withColumn(
+          'df_identity_row1',
+          f.col('row') * f.col('grouping_col1')
+      ).withColumn(
+          'df_identity_row2',
+          f.col('row') * f.col('grouping_col2')
+      )
+      split_marked_join_prep = split_marked_join_prep.withColumn('df_identity_row2',
+                                                                 f.col('df_identity_row2') - f.lit(lag))
+
+      numerator_p1 = split_marked_join_prep.filter(f.col('df_identity_row2').isNotNull()).selectExpr(
+          'row as row_p1', 'substract as v_p1', 'df_identity_row2 as joincol', '_dummy_group_col'
+      )
+      numerator_p2 = split_marked_join_prep.filter(f.col('df_identity_row1').isNotNull()).selectExpr(
+          'row as row_p2', 'substract as v_p2', 'df_identity_row1 as joincol', '_dummy_group_col'
+      )
+      numerators_collated = numerator_p1.alias('n1').join(numerator_p2.alias('n2'),
+                                                          ['joincol', '_dummy_group_col'],
+                                                          'inner')
+      numerator_product = numerators_collated.withColumn('mul', f.col('v_p1') * f.col('v_p2'))
+      numerator_per_ts = numerator_product.groupBy('_dummy_group_col').agg(f.sum('mul').alias('numerator'))
+      acf_df = numerator_per_ts.join(denominator_per_ts, '_dummy_group_col', 'inner')
+      acf = acf_df.withColumn(
+          f'autocorr_lag_{lag}',
+          f.col('numerator') / f.col('denominator')
+      ).selectExpr('_dummy_group_col', f'autocorr_lag_{lag}')
+      return acf
+
+
   def select(self, *cols):
     """
     pyspark.sql.DataFrame.select() method's equivalent for TSDF objects
