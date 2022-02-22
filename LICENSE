@@ -7,13 +7,13 @@ to an Agreement (defined below) between Licensee (defined below) and Databricks,
 Software shall be deemed part of the Downloadable Services under the Agreement, or if the Agreement does not define Downloadable Services, 
 Subscription Services, or if neither are defined then the term in such Agreement that refers to the applicable Databricks Platform 
 Services (as defined below) shall be substituted herein for “Downloadable Services.”  Licensee's use of the Software must comply at 
-all times with any restrictions applicable to the Downlodable Services and Subscription Services, generally, and must be used in 
+all times with any restrictions applicable to the Downloadable Services and Subscription Services, generally, and must be used in
 accordance with any applicable documentation. For the avoidance of doubt, the Software constitutes Databricks Confidential Information
 under the Agreement.
 
 Additionally, and notwithstanding anything in the Agreement to the contrary: 
 * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES 
-  OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE 
+  OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
   LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR 
   IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 * you may view, make limited copies of, and may compile the Source Code version of the Software into an Object Code version of the
